@@ -110,6 +110,14 @@ If you logged and FORCE set then relogin."
     (kill-buffer result-buffer)))
 
 (defun vkontakte-private-inbox (&optional arg)
+  (interactive "P")
+  (vkontakte-private "inbox" arg))
+
+(defun vkontakte-private-outbox (&optional arg)
+  (interactive "P")
+  (vkontakte-private "outbox" arg))
+
+(defun vkontakte-private (act &optional arg)
   "TODO: docstring"
   (interactive "P")
   (when arg
@@ -117,12 +125,12 @@ If you logged and FORCE set then relogin."
   (if vkontakte-sid
       (let ((url-request-method "GET")
             (api-url (concat vkontakte-api-url
-                             "act=inbox&from=0&to=" (or arg "10") "&"
-                             "id=&sid=" vkontakte-sid)))
-        (url-retrieve api-url 'vkontakte-private-inbox-sentinel))
+                             "act=" act "&from=0&to=" (or arg "10") "&"
+                             "&sid=" vkontakte-sid)))
+        (url-retrieve api-url 'vkontakte-private-sentinel (list act)))
     (message "vkontakte: please login to vkontakte")))
 
-(defun vkontakte-private-inbox-sentinel (status)
+(defun vkontakte-private-sentinel (status act)
   (let ((result-buffer (current-buffer)))
     (unwind-protect
         (progn
@@ -132,11 +140,13 @@ If you logged and FORCE set then relogin."
       (let* ((result (buffer-substring (point-min) (point-max)))
              (entries (cdr (nth 1 (json-read-from-string result))))
              (counter 0))
-        (switch-to-buffer "*vkontakte inbox*")
+        (switch-to-buffer (concat "*vkontakte " act " message*"))
         (kill-region (point-min) (point-max))
         (dotimes (x (length entries))
           (let ((message (aref (cdr (cadddr (aref entries x))) 0))
-                (name (aref (cdar (aref entries x)) 1))
+                (name (if (string= act "outbox")
+                          "Me"
+                        (aref (cdar (aref entries x)) 1)))
                 (time (seconds-to-time (string-to-number (cdar (cddddr (aref entries x)))))))
             (insert (format-time-string "%H:%M" time) " ")
             (insert (decode-coding-string name 'utf-8) "\n")
